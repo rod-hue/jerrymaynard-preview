@@ -1,41 +1,44 @@
-/* Instagram feed for @jerrylmaynardii.
-   LIVE MODE: set window.JM_IG_FEED (or IG_FEED below) to the Behold.so JSON feed URL once Jerry
-   connects his Instagram there (free, ~2 min, done from his account). The grid then always shows
-   his latest posts and updates itself; nothing else to change.
-   UNTIL THEN: the official Instagram embeds of his recent reels render instead. */
+/* Instagram wall for @jerrylmaynardii.
+   Source, in order:
+   1) LIVE: window.JM_IG_FEED = Behold.so JSON feed URL (set once Jerry connects his Instagram; free, ~2 min).
+      The wall then always shows his newest posts with no edits.
+   2) SNAPSHOT: assets/data/ig.json (his latest posts, captured Nov 5 2026).
+   Cards: rotating gradient border, cursor-tracked 3D tilt, caption reveal. */
 (() => {
-  const IG_FEED = window.JM_IG_FEED || '';            // e.g. 'https://feeds.behold.so/XXXXXXXXXXXX'
   const el = document.querySelector('[data-ig]'); if (!el) return;
   const handle = el.dataset.handle;
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+  const PIN = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 3l5 5-3 1-4 4 1 5-2 2-4-5-5 5-1-1 5-5-5-4 2-2 5 1 4-4z"/></svg>';
+  const ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17 17 7M9 7h8v8"/></svg>';
 
-  const fallback = () => {
-    if (document.querySelector('script[src*="instagram.com/embed.js"]')) return window.instgrm && window.instgrm.Embeds.process();
-    const s = document.createElement('script'); s.async = true; s.src = 'https://www.instagram.com/embed.js'; document.body.appendChild(s);
+  const fromBehold = d => (Array.isArray(d) ? d : d.posts || []).map(p => ({
+    permalink: p.permalink, img: p.sizes?.large?.mediaUrl || p.sizes?.medium?.mediaUrl || p.thumbnailUrl || p.mediaUrl,
+    caption: (p.prunedCaption || p.caption || '').split('\n')[0], reel: /VIDEO|REEL/i.test(p.mediaType || '') || p.isReel, pinned: false, pos: '50% 30%'
+  }));
+
+  const card = (p, i) => `<a class="ig-card${i === 0 ? ' big' : ''}" href="${esc(p.permalink)}" target="_blank" rel="noopener" style="--d:${i * 0.6}s">
+      <span class="ig-frame"><img loading="lazy" src="${esc(p.img)}" alt="${esc(p.caption)}" style="object-position:${esc(p.pos || '50% 30%')}">
+        <span class="ig-shine"></span>
+        <span class="ig-tag">${p.reel ? PLAY + 'Reel' : p.pinned ? PIN + 'Pinned' : 'Post'}</span>
+        <span class="ig-cap"><span>${esc(p.caption)}</span><em>View on Instagram ${ARROW}</em></span></span></a>`;
+
+  const render = posts => {
+    el.innerHTML = posts.slice(0, 7).map(card).join('');
+    if (!matchMedia('(hover:hover)').matches) return;
+    el.querySelectorAll('.ig-card').forEach(c => {
+      c.addEventListener('pointermove', e => {
+        const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
+        c.style.setProperty('--rx', `${(-y * 10).toFixed(2)}deg`); c.style.setProperty('--ry', `${(x * 12).toFixed(2)}deg`);
+        c.style.setProperty('--gx', `${(x + .5) * 100}%`); c.style.setProperty('--gy', `${(y + .5) * 100}%`);
+      });
+      c.addEventListener('pointerleave', () => { c.style.setProperty('--rx', '0deg'); c.style.setProperty('--ry', '0deg'); });
+    });
   };
 
-  const live = async () => {
-    const r = await fetch(IG_FEED, { cache: 'no-cache' }); if (!r.ok) throw 0;
-    const d = await r.json();
-    const posts = (Array.isArray(d) ? d : d.posts || []).slice(0, 8);
-    if (!posts.length) throw 0;
-    el.classList.add('is-live');
-    el.innerHTML = posts.map(p => {
-      const img = p.sizes?.medium?.mediaUrl || p.thumbnailUrl || p.mediaUrl;
-      const vid = /VIDEO|REEL/i.test(p.mediaType || '') || p.isReel;
-      const cap = p.prunedCaption || p.caption || '';
-      return `<a class="ig-tile" href="${esc(p.permalink)}" target="_blank" rel="noopener">
-        <img loading="lazy" src="${esc(img)}" alt="${esc(cap.slice(0, 120))}">
-        ${vid ? '<span class="ig-badge"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>' : ''}
-        <span class="ig-cap">${esc(cap.slice(0, 140))}${cap.length > 140 ? '…' : ''}</span></a>`;
-    }).join('') + `<a class="ig-more" href="https://www.instagram.com/${esc(handle)}/" target="_blank" rel="noopener">See more on Instagram &rarr;</a>`;
-  };
-
-  // only build the embeds when the section is close to view (they are heavy)
-  const io = new IntersectionObserver(es => {
-    if (!es.some(e => e.isIntersecting)) return;
-    io.disconnect();
-    (IG_FEED ? live() : Promise.reject()).catch(fallback);
-  }, { rootMargin: '600px' });
-  io.observe(el);
+  const get = async u => { const r = await fetch(u, { cache: 'no-cache' }); if (!r.ok) throw 0; return r.json(); };
+  (async () => {
+    if (window.JM_IG_FEED) { try { const p = fromBehold(await get(window.JM_IG_FEED)); if (p.length) return render(p); } catch {} }
+    try { render((await get('assets/data/ig.json')).posts); } catch {}
+  })();
 })();
