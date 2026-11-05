@@ -587,3 +587,4 @@ body::after{content:"";position:fixed;inset:0;z-index:100;pointer-events:none;op
 .logo-cell{width:260px;height:150px;padding:18px 26px;border-radius:20px}
 .logo-cell img{max-height:110px;max-width:210px;opacity:.9}
 @media (max-width:640px){.logo-cell{width:200px;height:118px}.logo-cell img{max-height:84px;max-width:160px}}
+.phones.one .phone{width:min(78%,340px);margin-top:0}
