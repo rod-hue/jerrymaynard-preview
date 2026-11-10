@@ -4,10 +4,13 @@
    Falls back to the bundled snapshot so the page is never empty.
    News: reads WordPress posts live (/wp-json/wp/v2/posts), falls back to snapshot. */
 (() => {
+  const A = p => (!p || /^(https?:|\/|data:|blob:)/.test(p)) ? p : (window.JM_BASE || '') + p;   // asset path resolver (WordPress theme base)
+
   const CFG = Object.assign({
     videosEndpoint: '/wp-json/jm/v1/videos',
     videosFallback: 'assets/data/videos.json',
-    postsEndpoint: '/wp-json/wp/v2/posts?per_page=30&_embed=wp:featuredmedia',
+    postsEndpoint: '/wp-json/wp/v2/posts?per_page=30&_embed=wp:featuredmedia&_fields=date,title,link,excerpt,_links,_embedded',
+    newsEndpoint: '/wp-json/jm/v1/news',
     postsFallback: 'assets/data/news.json',
     focal: 'assets/data/focal.json',
     press: 'assets/data/press.json',
@@ -149,7 +152,7 @@
   document.addEventListener('click', e => { const v = e.target.closest('[data-vid]'); if (v && !v.closest('.hub')) { e.preventDefault(); openVideo(v.dataset.vid); } });
 
   /* ---------- data loaders ---------- */
-  const getJSON = async url => { const r = await fetch(url, { cache: 'no-cache' }); if (!r.ok) throw new Error(r.status); return r.json(); };
+  const getJSON = async url => { const r = await fetch(A(url), { cache: 'no-cache' }); if (!r.ok) throw new Error(r.status); return r.json(); };
   let videosP;
   const loadVideos = () => videosP ||= (async () => {
     let d;
@@ -213,7 +216,8 @@
   const decode = s => { const t = document.createElement('textarea'); t.innerHTML = s; return t.value; };
   async function loadNews() {
     let posts;
-    try {
+    try { posts = await getJSON(CFG.newsEndpoint); if (!Array.isArray(posts) || !posts.length) throw 0; } catch { posts = null; }
+    if (!posts) try {
       const d = await getJSON(CFG.postsEndpoint);
       posts = d.map(p => ({ date: p.date.slice(0, 10), title: decode(p.title.rendered), link: p.link,
         img: p._embedded?.['wp:featuredmedia']?.[0]?.source_url || '',
@@ -235,11 +239,11 @@
       if (mode === 'list') {
         el.innerHTML = list.map(n => `<a class="nrow rv" href="${esc(n.link)}"><span class="d">${fmtDate(n.date)}</span>
           <span><span class="mono" style="color:var(--gold)">${topic(n.title)}${n.source ? ' &middot; ' + esc(n.source) : ''}</span><h3>${esc(n.title)}</h3></span>
-          ${n.img ? `<img loading="lazy" src="${esc(n.img)}" alt="" style="object-position:${fp(n)}">` : '<span></span>'}
+          ${n.img ? `<img loading="lazy" src="${esc(A(n.img))}" alt="" style="object-position:${fp(n)}">` : '<span></span>'}
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 17 17 7M9 7h8v8"/></svg></a>`).join('');
       } else {
         el.innerHTML = list.map((n, k) => `<a class="ncard rv rv-d${k % 3}" href="${esc(n.link)}"${n.source ? ' target="_blank" rel="noopener"' : ''}>
-          <div class="th">${n.img ? `<img loading="lazy" src="${esc(n.img)}" alt="" style="object-position:${fp(n)}">` : ''}</div>
+          <div class="th">${n.img ? `<img loading="lazy" src="${esc(A(n.img))}" alt="" style="object-position:${fp(n)}">` : ''}</div>
           <span class="k">${topic(n.title)} · ${fmtDate(n.date)}${n.source ? ' · ' + esc(n.source) : ''}</span><h3>${esc(n.title)}</h3><p>${esc(n.excerpt)}</p></a>`).join('');
       }
     });

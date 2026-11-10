@@ -6,6 +6,8 @@
    - UPCOMING  : off-air. Shows the most recent service ("Last service") and a countdown
                  to the next one. Flips automatically when the countdown hits zero. */
 (() => {
+  const A = p => (!p || /^(https?:|\/|data:|blob:)/.test(p)) ? p : (window.JM_BASE || '') + p;   // asset path resolver (WordPress theme base)
+
   const CFG = Object.assign({
     channel: 'UCKXISvlzoIzbYcnLwkoNUNw',
     channelUrl: 'https://www.youtube.com/@CathedralofPraiseNashville',
@@ -53,7 +55,7 @@
   const fmtWhen = d => d.toLocaleString('en-US', { timeZone: CFG.tz, weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' CT';
 
   /* ---- data ---- */
-  const getJSON = async u => { const r = await fetch(u, { cache: 'no-cache' }); if (!r.ok) throw 0; return r.json(); };
+  const getJSON = async u => { const r = await fetch(A(u), { cache: 'no-cache' }); if (!r.ok) throw 0; return r.json(); };
   let lastService = null, liveApi = null;
   const loadLast = async () => {
     let d; try { d = await getJSON(CFG.videosEndpoint); } catch { try { d = await getJSON(CFG.videosFallback); } catch { return; } }

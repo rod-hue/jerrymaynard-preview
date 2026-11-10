@@ -5,6 +5,8 @@
    2) SNAPSHOT: assets/data/ig.json (his latest posts, captured Nov 5 2026).
    Cards: rotating gradient border, cursor-tracked 3D tilt, caption reveal. */
 (() => {
+  const A = p => (!p || /^(https?:|\/|data:|blob:)/.test(p)) ? p : (window.JM_BASE || '') + p;   // asset path resolver (WordPress theme base)
+
   const el = document.querySelector('[data-ig]'); if (!el) return;
   const handle = el.dataset.handle;
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -18,7 +20,7 @@
   }));
 
   const card = (p, i) => `<a class="ig-card${i === 0 ? ' big' : ''}" href="${esc(p.permalink)}" target="_blank" rel="noopener" style="--d:${i * 0.6}s">
-      <span class="ig-frame"><img loading="lazy" src="${esc(p.img)}" alt="${esc(p.caption)}" style="object-position:${esc(p.pos || '50% 30%')}">
+      <span class="ig-frame"><img loading="lazy" src="${esc(A(p.img))}" alt="${esc(p.caption)}" style="object-position:${esc(p.pos || '50% 30%')}">
         <span class="ig-shine"></span>
         <span class="ig-tag">${p.reel ? PLAY + 'Reel' : p.pinned ? PIN + 'Pinned' : 'Post'}</span>
         <span class="ig-cap"><span>${esc(p.caption)}</span><em>View on Instagram ${ARROW}</em></span></span></a>`;
@@ -36,7 +38,7 @@
     });
   };
 
-  const get = async u => { const r = await fetch(u, { cache: 'no-cache' }); if (!r.ok) throw 0; return r.json(); };
+  const get = async u => { const r = await fetch(A(u), { cache: 'no-cache' }); if (!r.ok) throw 0; return r.json(); };
   (async () => {
     if (window.JM_IG_FEED) { try { const p = fromBehold(await get(window.JM_IG_FEED)); if (p.length) return render(p); } catch {} }
     try { render((await get('assets/data/ig.json')).posts); } catch {}
